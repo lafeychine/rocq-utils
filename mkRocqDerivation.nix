@@ -16,6 +16,7 @@ fix (
   in
   {
     inherit defaultVersion pname;
+    inherit propagatedBuildInputs;
 
     override = applyOverride;
     overrideAttrs = applyOverride;
@@ -27,13 +28,15 @@ fix (
     # Get the transitive Rocq dependency closure
     rocqDependencies =
       let
+        isRocqDerivation = hasAttr "rocqDependencies";
+
         collectRocqDepsOf =
           {
             propagatedBuildInputs ? [ ],
             ...
           }@drv:
-          (if drv ? availableVersions then [ drv ] else [ ])
-          ++ concatMap collectRocqDepsOf (filter (hasAttr "rocqDependencies") propagatedBuildInputs);
+          (if isRocqDerivation drv then [ drv ] else [  ])
+          ++ concatMap collectRocqDepsOf (filter isRocqDerivation propagatedBuildInputs);
       in
       unique (
         [
