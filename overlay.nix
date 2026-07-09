@@ -32,7 +32,7 @@ let
                 (case (versions.isEq "3.4.0") "3.7.1")
                 (case (versions.isEq "3.3.1") "3.6.2")
                 (case (versions.isEq "3.2.0") "3.4.5")
-              ] null;
+              ] "3.7.1";
             in
             [
               final.rocq-core.ocamlPackages.findlib
