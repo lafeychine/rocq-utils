@@ -1,0 +1,69 @@
+name: Build repository against supported released versions
+
+on:
+  workflow_call:
+    inputs:
+      repository:
+        type: string
+        required: true
+      override-input:
+        type: string
+        required: true
+      use-attic:
+        type: boolean
+        default: false
+    secrets:
+      ATTIC_CACHE:
+      ATTIC_ENDPOINT:
+      ATTIC_TOKEN:
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+
+    outputs:
+      packages: ${{ steps.discover.outputs.packages }}
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: nixbuild/nix-quick-install-action@v35
+
+      - name: Get all versions
+        id: discover
+        run: |
+          PACKAGES=$(nix eval --json ${{ inputs.repository }}#checks.x86_64-linux --override-input ${{ inputs.override-input }} . --apply builtins.attrNames)
+          echo "packages=${PACKAGES}" >> "$GITHUB_OUTPUT"
+
+  matrix:
+    needs: discover
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.discover.outputs.packages) }}
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: nixbuild/nix-quick-install-action@v35
+
+      - name: Check whether the build is in the Attic cache
+        if: ${{ inputs.use-attic }}
+        id: cache
+        run: |
+          HASH="$(nix eval --raw ${{ inputs.repository }}#checks.x86_64-linux.${{ matrix.package }} --override-input ${{ inputs.override-input }} .)"
+          HTTP_STATUS="$(curl ${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}/${HASH:11:32}.narinfo -H 'Authorization: Bearer ${{ secrets.ATTIC_TOKEN }}' -o /dev/null -s -w '%{http_code}')"
+          echo "HTTP code status for ${HASH}: ${HTTP_STATUS}"
+          echo "status=${HTTP_STATUS}" >> "$GITHUB_OUTPUT"
+
+      - uses: ryanccn/attic-action@v0
+        if: ${{ inputs.use-attic && steps.cache.outputs.status != '200' }}
+        with:
+          endpoint: ${{ secrets.ATTIC_ENDPOINT }}
+          cache: ${{ secrets.ATTIC_CACHE }}
+          token: ${{ secrets.ATTIC_TOKEN }}
+
+      - name: Build specific version
+        if: ${{ !inputs.use-attic || steps.cache.outputs.status != '200' }}
+        run: |
+          nix build ${{ inputs.repository }}#checks.x86_64-linux.${{ matrix.package }} --override-input ${{ inputs.override-input }} . --print-build-logs
