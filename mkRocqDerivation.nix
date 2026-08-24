@@ -54,7 +54,8 @@ fix (
             mkVersion =
               { out, case }:
               let
-                clauses = flatten [ case ];
+                caseFixed = if builtins.typeOf case == "string" then versions.isEq case else case;
+                clauses = flatten [ caseFixed ];
                 dependencies = flatten [ defaultVersion.dependencies ];
 
                 clause =
