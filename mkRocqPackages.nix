@@ -2,14 +2,14 @@ pkgs: rocq-version:
 
 with pkgs.lib;
 let
-  version = concatStringsSep "_" (take 2 (splitVersion rocq-version));
-  subset = "rocqPackages_${version}";
+  isVersion = v: match "^[0-9]+(\.[0-9]+){2}$" v != null;
+  mkSubset = v: "rocqPackages_${concatStringsSep "_" (take 2 (splitVersion v))}";
 in
-if hasAttr subset pkgs then
-  pkgs.${subset}
+if isVersion rocq-version && hasAttr (mkSubset rocq-version) pkgs then
+  pkgs.${mkSubset rocq-version}
 else
   pkgs.rocqPackages.overrideScope (
     _: prev: {
-      rocq-core = prev.rocq-core.override { inherit version; };
+      rocq-core = prev.rocq-core.override { version = rocq-version; };
     }
   )
