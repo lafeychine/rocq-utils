@@ -9,16 +9,10 @@ on:
       override-input:
         type: string
         required: true
-      use-attic:
-        type: boolean
-        default: false
-      allow-unsafe-pr-checkout:
-        type: boolean
-        default: false
     secrets:
-      ATTIC_CACHE:
-      ATTIC_ENDPOINT:
-      ATTIC_TOKEN:
+      CELLER_CACHE:
+      CELLER_ENDPOINT:
+      CELLER_TOKEN:
 
 jobs:
   discover:
@@ -54,27 +48,34 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          allow-unsafe-pr-checkout: ${{ inputs.allow-unsafe-pr-checkout }}
+          allow-unsafe-pr-checkout: true
 
       - uses: nixbuild/nix-quick-install-action@v35
 
-      - name: Check whether the build is in the Attic cache
-        if: ${{ inputs.use-attic }}
+      - name: Check whether the build is in the cache
         id: cache
         run: |
           HASH="$(nix eval --raw ${{ inputs.repository }}#checks.x86_64-linux.${{ matrix.package }} --override-input ${{ inputs.override-input }} .)"
-          HTTP_STATUS="$(curl ${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}/${HASH:11:32}.narinfo -H 'Authorization: Bearer ${{ secrets.ATTIC_TOKEN }}' -o /dev/null -s -w '%{http_code}')"
+          HTTP_STATUS="$(curl ${{ secrets.CELLER_ENDPOINT }}/${{ secrets.CELLER_CACHE }}/${HASH:11:32}.narinfo -H 'Authorization: Bearer ${{ secrets.CELLER_TOKEN }}' -o /dev/null -s -w '%{http_code}')"
           echo "HTTP code status for ${HASH}: ${HTTP_STATUS}"
           echo "status=${HTTP_STATUS}" >> "$GITHUB_OUTPUT"
 
+      # NOTE: This step is required until 'celler' is available in nixpkgs
+      # NOTE: This step is required until 'celler' is not automatically downloaded from ryanccn/attic-action
+      - name: Download celler
+        if: ${{ steps.cache.outputs.status != '200' }}
+        run: |
+          curl ${{ secrets.CELLER_ENDPOINT }}/celler -o attic
+          install -m 755 attic /usr/local/bin/
+
       - uses: ryanccn/attic-action@v0
-        if: ${{ inputs.use-attic && steps.cache.outputs.status != '200' }}
+        if: ${{ steps.cache.outputs.status != '200' }}
         with:
-          endpoint: ${{ secrets.ATTIC_ENDPOINT }}
-          cache: ${{ secrets.ATTIC_CACHE }}
-          token: ${{ secrets.ATTIC_TOKEN }}
+          endpoint: ${{ secrets.CELLER_ENDPOINT }}
+          cache: ${{ secrets.CELLER_CACHE }}
+          token: ${{ secrets.CELLER_TOKEN }}
 
       - name: Build specific version
-        if: ${{ !inputs.use-attic || steps.cache.outputs.status != '200' }}
+        if: ${{ steps.cache.outputs.status != '200' }}
         run: |
           nix build ${{ inputs.repository }}#checks.x86_64-linux.${{ matrix.package }} --override-input ${{ inputs.override-input }} . --print-build-logs
