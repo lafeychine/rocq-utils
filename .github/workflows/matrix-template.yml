@@ -27,7 +27,10 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           allow-unsafe-pr-checkout: ${{ inputs.allow-unsafe-pr-checkout }}
 
-      - uses: nixbuild/nix-quick-install-action@v35
+      - uses: NixOS/nix-installer-action@v1
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
 
       - name: Get all versions
         id: discover
@@ -50,7 +53,10 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           allow-unsafe-pr-checkout: true
 
-      - uses: nixbuild/nix-quick-install-action@v35
+      - uses: NixOS/nix-installer-action@v1
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
 
       - name: Check whether the build is in the cache
         id: cache
