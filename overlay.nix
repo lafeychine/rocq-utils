@@ -3,7 +3,7 @@ let
 
   # NOTE: If possible, upstream these matrices
   # It might not be accepted as overlapping is useless upstream
-  mkRocqPackages =
+  patchRocqPackages =
     base:
     base.overrideScope (
       final: prev:
@@ -12,17 +12,32 @@ let
       {
         stdlib = overrideRocqDerivation {
           defaultVersion = switch final.rocq-core.rocq-version [
-            (case (range "9.0" "9.2") "9.1.0")
+            (case (range "9.0" "9.3") "9.1.0")
             (case (range "9.0" "9.1") "9.0.0")
           ] null;
         } prev.stdlib;
+      }
+    );
+
+  mkRocqPackages =
+    prev:
+    { version, hash }:
+    prev.mkRocqPackages (
+      prev.rocqPackages.rocq-core.override {
+        version = {
+          inherit version;
+          location = {
+            inherit hash;
+            rev = "V${version}";
+          };
+        };
       }
     );
 in
 
 final: prev:
 let
-  # NOTE: Waiting the version 3.23 of Dune for Rocq 9.0 builds
+  # NOTE: Waiting the version 3.23 of Dune for Rocq 9.0 builds (nixos-26.11)
   # See: https://github.com/ocaml/dune/pull/14093
   rocqPackages_9_0 = prev.rocqPackages_9_0.overrideScope (
     _: _: {
@@ -38,9 +53,15 @@ let
   );
 in
 {
-  rocqPackages = mkRocqPackages prev.rocqPackages;
+  rocqPackages = patchRocqPackages prev.rocqPackages;
 
-  rocqPackages_9_0 = mkRocqPackages rocqPackages_9_0;
-  rocqPackages_9_1 = mkRocqPackages prev.rocqPackages_9_1;
-  rocqPackages_9_2 = mkRocqPackages prev.rocqPackages_9_2;
+  rocqPackages_9_0 = patchRocqPackages rocqPackages_9_0;
+  rocqPackages_9_1 = patchRocqPackages prev.rocqPackages_9_1;
+  rocqPackages_9_2 = patchRocqPackages prev.rocqPackages_9_2;
+  rocqPackages_9_3 = patchRocqPackages (
+    mkRocqPackages prev {
+      version = "9.3.0";
+      hash = "sha256-Wr9+5Mq3/hS3gnyZDnzBo9aJCjeqQDGi4eaU1LinwaE=";
+    }
+  );
 }

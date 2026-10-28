@@ -35,7 +35,7 @@ fix (
             propagatedBuildInputs ? [ ],
             ...
           }@drv:
-          (if isRocqDerivation drv then [ drv ] else [  ])
+          (if isRocqDerivation drv then [ drv ] else [ ])
           ++ concatMap collectRocqDepsOf (filter isRocqDerivation propagatedBuildInputs);
       in
       unique (
