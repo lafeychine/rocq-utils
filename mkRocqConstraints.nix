@@ -1,16 +1,14 @@
-{ nixpkgs }:
-rocqPackages: pkgName:
+pkgs: pkgName:
 
-with rocqPackages.lib;
+with pkgs.rocqPackages.lib;
 let
   rocqVersions =
     let
-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
       rocqVersions = map (attr: pkgs.${attr}.rocq-core.version) (
         filter (hasPrefix "rocqPackages_") (attrNames pkgs)
       );
     in
-    rocqPackages.overrideScope (
+    pkgs.rocqPackages.overrideScope (
       final: prev: {
         lib = prev.lib // {
           switch = dependencies: cases: _: { inherit cases dependencies; };
